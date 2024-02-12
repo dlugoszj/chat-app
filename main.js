@@ -37,7 +37,7 @@ let receiveChannel = null;
 let localStream = null;
 let remoteStream = null;
 
-const pc = new RTCPeerConnection(servers);
+var pc = new RTCPeerConnection(servers);
 pc.ondatachannel = receiveChannelCallback;
 
 var textChannel = pc.createDataChannel("textChannel");
@@ -80,10 +80,11 @@ function handleReceiveMessage(event) {
   console.log("receiveMessage")
 
   const el = document.createElement("p");
-  const txtNode = document.createTextNode(event.data);
+  const txtNode = document.createTextNode("Guest: "+event.data);
 
   el.appendChild(txtNode);
   receiveBox.appendChild(el);
+  receiveBox.scrollTop = receiveBox.scrollHeight;
 }
 
 // HTML elements
@@ -96,11 +97,13 @@ const hangupButton = document.getElementById('hangupButton');
 const messageButton = document.getElementById('sendMessage');
 const messageInput = document.getElementById('messageInput');
 const receiveBox = document.getElementById("receivebox");
+const meetingID = document.getElementById("meetingID");
+
 
 
 // 1. Setup media sources
 
-window.onload = async () => {
+const loading = async () => {
   console.log("running");
   localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
   remoteStream = new MediaStream();
@@ -122,6 +125,11 @@ window.onload = async () => {
 
   callButton.disabled = false;
   answerButton.disabled = false;
+  messageButton.disabled = true;
+}
+
+window.onload = async () => {
+  loading();
   
 };
 
@@ -146,7 +154,9 @@ callButton.onclick = async () => {
   const offerCandidates = callDoc.collection('offerCandidates');
   const answerCandidates = callDoc.collection('answerCandidates');
 
-  callInput.value = callDoc.id;
+  // callInput.value = callDoc.id;
+
+  meetingID.innerHTML = "Meeting ID: " + callDoc.id;
 
   // Get candidates for caller, save to db
   pc.onicecandidate = (event) => {
@@ -222,10 +232,78 @@ answerButton.onclick = async () => {
       }
     });
   });
+  hangupButton.disabled=false;
 };
 
 sendMessage.onclick = async () => {
+  if(messageInput.value== ""){
+    return;
+  }
   textChannel.send(messageInput.value);
+
+  const el = document.createElement("p");
+  const txtNode = document.createTextNode("You: " + messageInput.value);
+
+  el.appendChild(txtNode);
+  receiveBox.appendChild(el);
+
   messageInput.value = "";
   messageInput.focus();
+  receiveBox.scrollTop = receiveBox.scrollHeight;
 }
+
+hangupButton.onclick = async () => {
+
+  pc.close();
+  // Update user interface elements
+
+  callButton.disabled = false;
+  answerButton.disabled = false;
+  messageButton.disabled = true;
+  hangupButton.disabled = true;
+
+  messageInput.value = "";
+  messageInput.disabled = true;
+  receiveBox.innerHTML = "";
+  meetingID.innerHTML= "";
+  remoteStream = null;
+  remoteVideo.srcObject = null ;
+
+  pc = new RTCPeerConnection(servers);
+  pc.ondatachannel = receiveChannelCallback;
+
+  textChannel = pc.createDataChannel("textChannel");
+  textChannel.onopen = handleSendTextChannelStatusChange;
+  textChannel.onclose = handleSendTextChannelStatusChange;
+  textChannel.onmessage = handleReceiveMessage;
+  loading();
+}
+
+pc.onconnectionstatechange = (event) => {
+  console.log(pc.connectionState);
+  if(pc.connectionState == "disconnected"){
+    pc.close();
+    // Update user interface elements
+  
+    callButton.disabled = false;
+    answerButton.disabled = false;
+    messageButton.disabled = true;
+    hangupButton.disabled = true;
+  
+    messageInput.value = "";
+    messageInput.disabled = true;
+    receiveBox.innerHTML = "";
+    meetingID.innerHTML= "";
+    remoteStream = null;
+    remoteVideo.srcObject = null ;
+
+    pc = new RTCPeerConnection(servers);
+    pc.ondatachannel = receiveChannelCallback;
+  
+    textChannel = pc.createDataChannel("textChannel");
+    textChannel.onopen = handleSendTextChannelStatusChange;
+    textChannel.onclose = handleSendTextChannelStatusChange;
+    textChannel.onmessage = handleReceiveMessage;
+    loading();
+  }
+};
