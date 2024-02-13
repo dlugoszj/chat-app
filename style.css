@@ -1,4 +1,6 @@
-
+h2 {
+  text-align:center;
+}
 body {
   font-family: 'Syne Mono', monospace;
   -webkit-font-smoothing: antialiased;

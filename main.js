@@ -32,7 +32,7 @@ const servers = {
 };
 
 // Global State
-let receiveChannel = null;
+// let receiveChannel = null;
 let localStream = null;
 let remoteStream = null;
 
@@ -58,23 +58,15 @@ function handleSendTextChannelStatusChange(event){
   }
 }
 
-function handleReceiveChannelStatusChange(event) {
-  if (receiveChannel) {
-    console.log(
-      `Receive channel's status has changed to ${receiveChannel.readyState}`,
-    );
-  }
-}
-
 
 function receiveChannelCallback(event) {
   console.log("ReceiveCallBack")
   textChannel = event.channel;
   textChannel.onmessage = handleReceiveMessage;
-  textChannel.onopen = handleReceiveChannelStatusChange;
-  textChannel.onclose = handleReceiveChannelStatusChange;
 }
 
+
+//Handles when text is received over textChannel
 function handleReceiveMessage(event) {
   console.log("receiveMessage")
 
@@ -145,7 +137,7 @@ function makeid(length) {
   return result;
 }
 
-// 2. Create an offer
+// Create a call
 callButton.onclick = async () => {
   // Reference Firestore collections for signaling
   let id = makeid(5);
@@ -196,7 +188,7 @@ callButton.onclick = async () => {
   messageButton.disabled= false;
 };
 
-// 3. Answer the call with the unique ID
+// Answer a call
 answerButton.onclick = async () => {
   const callId = callInput.value;
   const callDoc = firestore.collection('calls').doc(callId);
@@ -234,6 +226,8 @@ answerButton.onclick = async () => {
   hangupButton.disabled=false;
 };
 
+
+//sends chat message
 sendMessage.onclick = async () => {
   if(messageInput.value== ""){
     return;
@@ -251,11 +245,20 @@ sendMessage.onclick = async () => {
   receiveBox.scrollTop = receiveBox.scrollHeight;
 }
 
+//Handles Local Hangup
 hangupButton.onclick = async () => {
+  close();
+}
 
-  pc.close();
-  // Update user interface elements
+//Checks to see if other person hung up and then hangs up
+pc.onconnectionstatechange = (event) => {
+  console.log(pc.connectionState);
+  if(pc.connectionState == "disconnected"){
+    close();
+  }
+};
 
+function close (){
   callButton.disabled = false;
   answerButton.disabled = false;
   messageButton.disabled = true;
@@ -277,32 +280,3 @@ hangupButton.onclick = async () => {
   textChannel.onmessage = handleReceiveMessage;
   loading();
 }
-
-pc.onconnectionstatechange = (event) => {
-  console.log(pc.connectionState);
-  if(pc.connectionState == "disconnected"){
-    pc.close();
-    // Update user interface elements
-  
-    callButton.disabled = false;
-    answerButton.disabled = false;
-    messageButton.disabled = true;
-    hangupButton.disabled = true;
-  
-    messageInput.value = "";
-    messageInput.disabled = true;
-    receiveBox.innerHTML = "";
-    meetingID.innerHTML= "";
-    remoteStream = null;
-    remoteVideo.srcObject = null ;
-
-    pc = new RTCPeerConnection(servers);
-    pc.ondatachannel = receiveChannelCallback;
-  
-    textChannel = pc.createDataChannel("textChannel");
-    textChannel.onopen = handleSendTextChannelStatusChange;
-    textChannel.onclose = handleSendTextChannelStatusChange;
-    textChannel.onmessage = handleReceiveMessage;
-    loading();
-  }
-};
